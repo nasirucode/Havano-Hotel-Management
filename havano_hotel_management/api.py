@@ -75,6 +75,13 @@ def create_sales_invoice(doc, method=None, charge=0):
         frappe.db.set_value("Room", doc.room, "checkout_date", doc.check_out_date)
 
         frappe.db.set_value("Check In", doc_name, "sales_invoice_number", si.name)
+        
+        # Set balance_due to total_charge on submit (if not already set)
+        if not doc.balance_due and doc.total_charge:
+            frappe.db.set_value("Check In", doc_name, "balance_due", doc.total_charge, update_modified=False)
+        # Set amount_paid to 0 initially if not set
+        if not doc.amount_paid:
+            frappe.db.set_value("Check In", doc_name, "amount_paid", 0, update_modified=False)
 
         # check_in_doc = frappe.get_doc("Check In", doc_name)
         # check_in_doc.append("sales_invoices", {
@@ -485,10 +492,26 @@ def make_payment_entry(check_in, sales_invoice, payment_method, amount, payment_
         payment_entry.save()
         payment_entry.submit()
 
+        # Get all payment entries for this check-in
+        payment_entries = frappe.get_all(
+            "Payment Entry",
+            filters={
+                "check_in_reference": check_in,
+                "docstatus": 1  # Only submitted payments
+            },
+            fields=["paid_amount"]
+        )
+        
+        # Calculate total amount paid
+        total_amount_paid = sum([float(pe.paid_amount) for pe in payment_entries])
+        
+        # Update check-in with payment entry and calculated amounts
         frappe.db.set_value("Check In", check_in, "payment_entry", payment_entry.name)
-        frappe.db.set_value("Check In", check_in, "balance_due", invoice.outstanding_amount)
-
-
+        frappe.db.set_value("Check In", check_in, "amount_paid", total_amount_paid)
+        
+        # Calculate balance_due = total_charge - amount_paid
+        balance_due = float(check_in_doc.total_charge or 0) - total_amount_paid
+        frappe.db.set_value("Check In", check_in, "balance_due", balance_due)
         
         # Update the check in document if needed
         update_check_in_payment_status(check_in_doc, invoice)
@@ -686,6 +709,49 @@ def create_hotel_guest_from_customer(doc, method):
         frappe.log_error(
             message=f"Error creating Hotel Guest for Customer {doc.name}: {str(e)}\n{frappe.get_traceback()}",
             title="Error Creating Hotel Guest from Customer"
+        )
+
+
+def update_check_in_balance_on_payment_entry_submit(doc, method):
+    """
+    Hook function to update Check In balance_due and amount_paid when Payment Entry is submitted
+    """
+    if not doc.check_in_reference:
+        return
+    
+    try:
+        check_in_name = doc.check_in_reference
+        
+        # Get all submitted payment entries for this check-in
+        payment_entries = frappe.get_all(
+            "Payment Entry",
+            filters={
+                "check_in_reference": check_in_name,
+                "docstatus": 1  # Only submitted payments
+            },
+            fields=["paid_amount"]
+        )
+        
+        # Calculate total amount paid
+        total_amount_paid = sum([float(pe.paid_amount) for pe in payment_entries])
+        
+        # Get the check-in document to get total_charge
+        check_in_doc = frappe.get_doc("Check In", check_in_name)
+        total_charge = float(check_in_doc.total_charge or 0)
+        
+        # Calculate balance_due = total_charge - amount_paid
+        balance_due = total_charge - total_amount_paid
+        
+        # Update check-in with calculated amounts
+        frappe.db.set_value("Check In", check_in_name, "amount_paid", total_amount_paid, update_modified=False)
+        frappe.db.set_value("Check In", check_in_name, "balance_due", balance_due, update_modified=False)
+        
+        frappe.db.commit()
+        
+    except Exception as e:
+        frappe.log_error(
+            message=f"Error updating Check In balance on Payment Entry submit: {str(e)}\n{frappe.get_traceback()}",
+            title="Error Updating Check In Balance"
         )
 
 

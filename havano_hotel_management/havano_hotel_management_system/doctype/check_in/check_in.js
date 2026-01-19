@@ -132,6 +132,52 @@ frappe.ui.form.on("Check In", {
     },
 	refresh(frm) {
         general_ledger(frm);
+        
+        // Update checkout status based on actual_checkout_date
+        if (frm.doc.actual_checkout_date) {
+            frm.set_value("checkout_status", "Out");
+        } else if (frm.doc.check_out_date) {
+            // Check if overdue
+            let today = frappe.datetime.get_today();
+            if (frappe.datetime.str_to_obj(frm.doc.check_out_date) < frappe.datetime.str_to_obj(today)) {
+                frm.set_value("checkout_status", "Overdue");
+            } else {
+                frm.set_value("checkout_status", "In");
+            }
+        } else {
+            frm.set_value("checkout_status", "In");
+        }
+        
+        // Recalculate amount_paid and balance_due if document is submitted
+        if (frm.doc.docstatus === 1 && frm.doc.name) {
+            frappe.call({
+                method: "frappe.client.get_list",
+                args: {
+                    doctype: "Payment Entry",
+                    filters: {
+                        "check_in_reference": frm.doc.name,
+                        "docstatus": 1
+                    },
+                    fields: ["paid_amount"]
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        let total_amount_paid = 0;
+                        r.message.forEach(function(pe) {
+                            total_amount_paid += parseFloat(pe.paid_amount || 0);
+                        });
+                        
+                        let balance_due = parseFloat(frm.doc.total_charge || 0) - total_amount_paid;
+                        
+                        if (frm.doc.amount_paid != total_amount_paid || frm.doc.balance_due != balance_due) {
+                            frm.set_value("amount_paid", total_amount_paid);
+                            frm.set_value("balance_due", balance_due);
+                        }
+                    }
+                }
+            });
+        }
+        
         if(frm.doc.docstatus === 1) {
             frm.set_df_property("nights", "read_only", 1);
             frm.set_df_property("check_out_date", "read_only", true);
@@ -271,6 +317,35 @@ frappe.ui.form.on("Check In", {
                 
                 }
             });
+        }
+    },
+    actual_checkout_date: function(frm) {
+        // Update checkout status when actual_checkout_date changes
+        if (frm.doc.actual_checkout_date) {
+            frm.set_value("checkout_status", "Out");
+        } else {
+            // Recalculate status if actual_checkout_date is cleared
+            if (frm.doc.check_out_date) {
+                let today = frappe.datetime.get_today();
+                if (frappe.datetime.str_to_obj(frm.doc.check_out_date) < frappe.datetime.str_to_obj(today)) {
+                    frm.set_value("checkout_status", "Overdue");
+                } else {
+                    frm.set_value("checkout_status", "In");
+                }
+            } else {
+                frm.set_value("checkout_status", "In");
+            }
+        }
+    },
+    check_out_date: function(frm) {
+        // Update checkout status when check_out_date changes (only if not checked out)
+        if (!frm.doc.actual_checkout_date && frm.doc.check_out_date) {
+            let today = frappe.datetime.get_today();
+            if (frappe.datetime.str_to_obj(frm.doc.check_out_date) < frappe.datetime.str_to_obj(today)) {
+                frm.set_value("checkout_status", "Overdue");
+            } else {
+                frm.set_value("checkout_status", "In");
+            }
         }
     },
     on_submit(frm){
@@ -508,12 +583,12 @@ function make_payment(frm){
                 },
                 callback: function(r) {
                     if (r.message) {
-                        frm.set_value('balance_due', frm.doc.total_charge - frm.doc.amount_paid);
                         frappe.show_alert({
                             message: __('Payment Entry {0} created successfully', 
                                 ['<a href="/app/payment-entry/' + r.message + '">' + r.message + '</a>']),
                             indicator: 'green'
                         });
+                        // Reload to get updated amount_paid and balance_due from backend
                         frm.reload_doc();
                     }
                 }

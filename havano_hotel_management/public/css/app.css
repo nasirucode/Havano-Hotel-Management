@@ -22,3 +22,9 @@
     color: white !important;
     font-weight: 500;
 }
+
+.list-row[data-checkout-status="Overdue"] .list-col[data-fieldname="checkout_status"] {
+    background-color: #dc3545 !important;
+    color: white !important;
+    font-weight: 500;
+}

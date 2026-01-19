@@ -247,7 +247,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Checkout Status",
-   "options": "In\nOut",
+   "options": "In\nOut\nOverdue",
    "read_only": 1
   },
   {

@@ -9,10 +9,39 @@ class CheckIn(Document):
     def validate(self):
         self.set_checkout_status()
     
+    def on_submit(self):
+        """Set balance_due to total_charge when Check In is submitted"""
+        if self.total_charge:
+            self.balance_due = float(self.total_charge)
+            # Also set amount_paid to 0 initially
+            if not self.amount_paid:
+                self.amount_paid = 0
+    
+    def on_update(self):
+        """Update checkout status when document is updated"""
+        # Only update if not already being updated (prevent recursion)
+        if not hasattr(frappe.flags, 'updating_checkout_status'):
+            frappe.flags.updating_checkout_status = True
+            try:
+                self.set_checkout_status()
+                # Save the status if it changed
+                if self.has_value_changed("checkout_status"):
+                    frappe.db.set_value("Check In", self.name, "checkout_status", self.checkout_status, update_modified=False)
+            finally:
+                frappe.flags.updating_checkout_status = False
+    
     def set_checkout_status(self):
-        """Set checkout status based on actual_checkout_date"""
+        """Set checkout status based on actual_checkout_date and check_out_date"""
+        # Always check actual_checkout_date first - if it exists, guest is checked out
         if self.actual_checkout_date:
             self.checkout_status = "Out"
+        elif self.check_out_date:
+            # Check if check_out_date is past today (overdue)
+            from frappe.utils import getdate, today
+            if getdate(self.check_out_date) < getdate(today()):
+                self.checkout_status = "Overdue"
+            else:
+                self.checkout_status = "In"
         else:
             self.checkout_status = "In"
     
@@ -202,6 +231,31 @@ def get_rooms_from_reservation(doctype, txt, searchfield, start, page_len, filte
         WHERE res_room.parent = %s
         AND (room.name LIKE %s OR room.room_number LIKE %s)
     """, (reservation, "%" + txt + "%", "%" + txt + "%"))
+
+
+@frappe.whitelist()
+def update_checkout_status(check_in_name=None):
+    """Update checkout status for a Check In or all Check Ins"""
+    if check_in_name:
+        # Update specific check in
+        check_in = frappe.get_doc("Check In", check_in_name)
+        check_in.set_checkout_status()
+        frappe.db.set_value("Check In", check_in_name, "checkout_status", check_in.checkout_status, update_modified=False)
+        frappe.db.commit()
+        return {"status": "updated", "checkout_status": check_in.checkout_status}
+    else:
+        # Update all check ins
+        check_ins = frappe.get_all("Check In", filters={"docstatus": 1}, fields=["name"])
+        updated = 0
+        for ci in check_ins:
+            check_in = frappe.get_doc("Check In", ci.name)
+            old_status = check_in.checkout_status
+            check_in.set_checkout_status()
+            if old_status != check_in.checkout_status:
+                frappe.db.set_value("Check In", ci.name, "checkout_status", check_in.checkout_status, update_modified=False)
+                updated += 1
+        frappe.db.commit()
+        return {"status": "updated", "count": updated}
 
 
 @frappe.whitelist()

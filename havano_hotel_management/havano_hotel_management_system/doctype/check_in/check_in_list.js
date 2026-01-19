@@ -5,6 +5,8 @@ frappe.listview_settings['Check In'] = {
     get_indicator: function(doc) {
         if (doc.checkout_status === "Out") {
             return [__("Out"), "blue", "checkout_status,=,Out"];
+        } else if (doc.checkout_status === "Overdue") {
+            return [__("Overdue"), "red", "checkout_status,=,Overdue"];
         } else if (doc.checkout_status === "In") {
             return [__("In"), "orange", "checkout_status,=,In"];
         }
@@ -13,6 +15,8 @@ frappe.listview_settings['Check In'] = {
         checkout_status: function(value, field, doc) {
             if (value === "Out") {
                 return `<span style="background-color: #007bff; color: white; padding: 2px 8px; border-radius: 3px; font-weight: 500; display: inline-block;">Out</span>`;
+            } else if (value === "Overdue") {
+                return `<span style="background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 3px; font-weight: 500; display: inline-block;">Overdue</span>`;
             } else if (value === "In") {
                 return `<span style="background-color: #ff9800; color: white; padding: 2px 8px; border-radius: 3px; font-weight: 500; display: inline-block;">In</span>`;
             }
@@ -31,6 +35,14 @@ frappe.listview_settings['Check In'] = {
                 if (checkoutStatus === "Out") {
                     $statusCell.css({
                         'background-color': '#007bff',
+                        'color': 'white',
+                        'font-weight': '500',
+                        'padding': '2px 8px',
+                        'border-radius': '3px'
+                    });
+                } else if (checkoutStatus === "Overdue") {
+                    $statusCell.css({
+                        'background-color': '#dc3545',
                         'color': 'white',
                         'font-weight': '500',
                         'padding': '2px 8px',
