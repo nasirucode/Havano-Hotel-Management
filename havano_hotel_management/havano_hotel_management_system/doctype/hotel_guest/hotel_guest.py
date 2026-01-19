@@ -23,7 +23,13 @@ class HotelGuest(Document):
 		if hasattr(self.flags, 'ignore_validate_guest_customer') and self.flags.ignore_validate_guest_customer:
 			return
 		if not self.guest_customer:
-			self.create_customer()
+			# Set a flag to indicate we're creating a customer from a guest
+			frappe.flags.creating_customer_from_guest = True
+			try:
+				self.create_customer()
+			finally:
+				# Clear the flag
+				frappe.flags.creating_customer_from_guest = False
 
 	def get_default_warehouse_and_cost_center(self):
 		"""Get default warehouse and cost center from various sources"""
@@ -110,6 +116,10 @@ class HotelGuest(Document):
 				customer_data["custom_customer_vat"] = customer_vat
 
 			new_customer = frappe.get_doc(customer_data)
+			
+			# Set a flag to prevent the reverse hook from creating a guest
+			# This customer is being created from a Hotel Guest
+			new_customer.flags.from_hotel_guest = True
 
 			# Save the new Customer
 			new_customer.insert(ignore_permissions=True)

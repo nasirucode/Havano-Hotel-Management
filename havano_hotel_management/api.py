@@ -571,10 +571,27 @@ def create_hotel_guest_from_customer(doc, method):
     Hook function to create a Hotel Guest when a Customer is created
     """
     try:
+        # Skip if this customer was created from a Hotel Guest (to avoid circular creation)
+        if hasattr(doc.flags, 'from_hotel_guest') and doc.flags.from_hotel_guest:
+            return
+        
+        # Also check frappe.flags to prevent circular creation
+        if hasattr(frappe.flags, 'creating_customer_from_guest') and frappe.flags.creating_customer_from_guest:
+            return
+        
         # Check if a Hotel Guest already exists for this customer
         existing_guest = frappe.db.exists("Hotel Guest", {"guest_customer": doc.name})
         if existing_guest:
             return  # Guest already exists, skip creation
+        
+        # Also check if a guest with the same full_name exists (in case guest was created first)
+        customer_name = doc.customer_name or ""
+        if customer_name:
+            existing_guest_by_name = frappe.db.exists("Hotel Guest", {"full_name": customer_name})
+            if existing_guest_by_name:
+                # Link the existing guest to this customer
+                frappe.db.set_value("Hotel Guest", existing_guest_by_name, "guest_customer", doc.name)
+                return
         
         # Parse customer name to extract first and last name
         customer_name = doc.customer_name or ""
