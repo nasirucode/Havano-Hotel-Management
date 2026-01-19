@@ -30,44 +30,28 @@ class HotelGuest(Document):
 		default_warehouse = None
 		default_cost_center = None
 		
-		# Try to get from User Permissions (if user is logged in)
-		user = frappe.session.user
-		if user and user != "Guest":
-			default_warehouse = frappe.db.get_value(
-				"User Permission",
-				{"user": user, "allow": "Warehouse", "is_default": 1},
-				"for_value"
-			)
-			default_cost_center = frappe.db.get_value(
-				"User Permission",
-				{"user": user, "allow": "Cost Center", "is_default": 1},
-				"for_value"
-			)
+		# First, try to get from guest's default fields if set
+		if self.default_warehouse:
+			default_warehouse = self.default_warehouse
+		if self.default_cost_center:
+			default_cost_center = self.default_cost_center
 		
-		# If not found, try to get from Company defaults
+		# If not set on guest, try to get from User Permissions (if user is logged in)
 		if not default_warehouse or not default_cost_center:
-			company = frappe.defaults.get_user_default("company") or frappe.db.get_single_value("Global Defaults", "default_company")
-			if company:
+			user = frappe.session.user
+			if user and user != "Guest":
 				if not default_warehouse:
-					# Try to get default warehouse from company
-					default_warehouse = frappe.db.get_value("Company", company, "default_warehouse")
+					default_warehouse = frappe.db.get_value(
+						"User Permission",
+						{"user": user, "allow": "Warehouse", "is_default": 1},
+						"for_value"
+					)
 				if not default_cost_center:
-					# Try to get default cost center from company
-					default_cost_center = frappe.db.get_value("Company", company, "cost_center")
-		
-		# If still not found, try to get from any existing customer
-		if not default_warehouse or not default_cost_center:
-			existing_customer = frappe.db.get_value(
-				"Customer",
-				{"custom_warehouse": ["!=", ""], "custom_cost_center": ["!=", ""]},
-				["custom_warehouse", "custom_cost_center"],
-				as_dict=True
-			)
-			if existing_customer:
-				if not default_warehouse:
-					default_warehouse = existing_customer.custom_warehouse
-				if not default_cost_center:
-					default_cost_center = existing_customer.custom_cost_center
+					default_cost_center = frappe.db.get_value(
+						"User Permission",
+						{"user": user, "allow": "Cost Center", "is_default": 1},
+						"for_value"
+					)
 		
 		# If still not found, try to get any warehouse and cost center
 		if not default_warehouse:
