@@ -5,7 +5,7 @@ frappe.listview_settings['Room'] = {
         check_overdue_checkouts();
         update_status_counts();
         // Switch to the existing "Room View" kanban view on load
-        frappe.set_route("List", "Room", "Kanban", "Room View");
+        // frappe.set_route("List", "Room", "Kanban", "Room View");
     
     },
    
