@@ -319,3 +319,57 @@ def get_general_ledger_entries(check_in):
         "data": data
     }
 
+
+@frappe.whitelist()
+def get_total_balance(guest_name=None, company=None, posting_date=None):
+    """Return Customer's balance in Accounts Receivable for the given Hotel Guest."""
+    from frappe.utils import flt, nowdate
+
+    if not guest_name:
+        return 0
+
+    company = company or frappe.defaults.get_user_default("company")
+    if not company:
+        return 0
+
+    customer = frappe.db.get_value("Hotel Guest", guest_name, "guest_customer")
+    if not customer:
+        return 0
+
+    receivable_account = frappe.get_cached_value("Company", company, "default_receivable_account")
+    if not receivable_account:
+        return 0
+
+    posting_date = posting_date or nowdate()
+
+    # Preferred: ERPNext helper (handles fiscal year validations, etc.)
+    try:
+        from erpnext.accounts.utils import get_balance_on
+
+        balance = get_balance_on(
+            account=receivable_account,
+            date=posting_date,
+            party_type="Customer",
+            party=customer,
+            company=company,
+            in_account_currency=True,
+        )
+        return flt(balance)
+    except Exception:
+        # Fallback: sum GL entries
+        balance = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(debit - credit), 0)
+            FROM `tabGL Entry`
+            WHERE
+                is_cancelled = 0
+                AND company = %s
+                AND account = %s
+                AND party_type = 'Customer'
+                AND party = %s
+                AND posting_date <= %s
+            """,
+            (company, receivable_account, customer, posting_date),
+        )[0][0]
+        return flt(balance)
+
