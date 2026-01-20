@@ -29,6 +29,7 @@ frappe.ui.form.on("Check In", {
                 }
             };
         });
+
     },
     check_out_date: function(frm){
         if(frm.doc.check_in_date && frm.doc.check_out_date) {
@@ -132,6 +133,92 @@ frappe.ui.form.on("Check In", {
     },
 	refresh(frm) {
         general_ledger(frm);
+        
+        // Auto-save functionality - set up on refresh
+        if (!frm.auto_save_setup) {
+            frm.auto_save_setup = true;
+            let auto_save_timeout = null;
+            let is_auto_saving = false;
+            let last_dirty_state = frm.is_dirty();
+
+            // Function to auto-save the document
+            function trigger_auto_save() {
+                // Clear existing timeout
+                if (auto_save_timeout) {
+                    clearTimeout(auto_save_timeout);
+                }
+
+                // Only auto-save if:
+                // 1. Document is not new (has been saved at least once)
+                // 2. Document has unsaved changes
+                // 3. Not already saving
+                if (frm.is_new() || !frm.is_dirty() || is_auto_saving) {
+                    return;
+                }
+
+                // Debounce: wait 2 seconds after last change before saving
+                auto_save_timeout = setTimeout(function() {
+                    if (frm.is_dirty() && !frm.is_new() && !is_auto_saving) {
+                        is_auto_saving = true;
+                        
+                        // Show auto-save indicator
+                        frappe.show_alert({
+                            message: __('Auto-saving...'),
+                            indicator: 'blue'
+                        }, 2);
+
+                        // Use "Update" for submitted documents, regular save for drafts
+                        let save_action = frm.doc.docstatus === 1 ? "Update" : null;
+                        
+                        // Save the document (works for both draft and submitted documents)
+                        frm.save(save_action, function() {
+                            is_auto_saving = false;
+                            last_dirty_state = frm.is_dirty();
+                            frappe.show_alert({
+                                message: __('Auto-saved'),
+                                indicator: 'green'
+                            }, 2);
+                        }).catch(function(error) {
+                            is_auto_saving = false;
+                            // Don't show error alert for auto-save failures to avoid interrupting user
+                            console.error('Auto-save failed:', error);
+                        });
+                    }
+                }, 2000); // 2 second delay
+            }
+
+            // Monitor form dirty state changes
+            let check_dirty_state = setInterval(function() {
+                if (frm.is_dirty() !== last_dirty_state) {
+                    last_dirty_state = frm.is_dirty();
+                    if (last_dirty_state) {
+                        trigger_auto_save();
+                    }
+                }
+            }, 500); // Check every 500ms
+
+            // Also listen to field changes by attaching to all input fields
+            frm.$wrapper.on('change', 'input, select, textarea', function() {
+                trigger_auto_save();
+            });
+
+            // Listen to child table changes
+            frm.$wrapper.on('grid-row-added grid-row-removed', function() {
+                trigger_auto_save();
+            });
+
+            // Clean up when form is unloaded
+            $(document).on('form-unload', function(e, unload_frm) {
+                if (unload_frm && unload_frm.docname === frm.docname && unload_frm.doctype === frm.doctype) {
+                    if (auto_save_timeout) {
+                        clearTimeout(auto_save_timeout);
+                    }
+                    if (check_dirty_state) {
+                        clearInterval(check_dirty_state);
+                    }
+                }
+            });
+        }
         
         // Update checkout status based on actual_checkout_date
         if (frm.doc.actual_checkout_date) {
