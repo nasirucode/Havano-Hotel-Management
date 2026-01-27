@@ -152,8 +152,15 @@ doc_events = {
         # "validate": "havano_hotel_management.api.validate_check_in",
         "on_submit": [
             "havano_hotel_management.api.create_sales_invoice",
+            "havano_hotel_management.api.redirect_to_hotel_dashboard_after_checkin",
+            "havano_hotel_management.api.update_room_status_on_checkin_submit"
+        ],
+        "after_submit": [
             "havano_hotel_management.api.redirect_to_hotel_dashboard_after_checkin"
         ]
+    },
+    "Check Out": {
+        "on_submit": "havano_hotel_management.api.update_room_status_on_checkout_submit"
     },
     "Booking": {
         # "validate": "havano_hotel_management.api.validate_booking",

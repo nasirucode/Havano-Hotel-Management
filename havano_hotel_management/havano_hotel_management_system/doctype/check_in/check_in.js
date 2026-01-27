@@ -206,30 +206,31 @@ frappe.ui.form.on("Check In", {
 
           
 	},
-    guest_name: function(frm) {
-        if(frm.doc.guest_name) {
-            frappe.call({
-                method: "frappe.client.get_list",
-                args: {
-                    doctype: "Check In",
-                    filters: [
-                        ["guest_name", "=", frm.doc.guest_name],
-                        ["docstatus", "=", 1], // Submitted documents
-                        ["check_out_date", "=", ""] // No check-out date means not checked out yet
-                    ],
-                    fields: ["name", "room"]
-                },
-                callback: function(r) {
-                    if(r.message && r.message.length > 0) {
-                        // Guest has an existing active check-in
-                        let existing = r.message[0];
-                        frm.set_value("guest_name", ""); // Clear the guest name field
-                        frappe.msgprint(__(`Guest already has an active check-in (${existing.name}) in room ${existing.room}. Please check out the guest first before creating a new check-in.`));
-                    }
-                }
-            });
-        }
-    },
+    // Removed validation to allow guests to have multiple active check-ins
+    // guest_name: function(frm) {
+    //     if(frm.doc.guest_name) {
+    //         frappe.call({
+    //             method: "frappe.client.get_list",
+    //             args: {
+    //                 doctype: "Check In",
+    //                 filters: [
+    //                     ["guest_name", "=", frm.doc.guest_name],
+    //                     ["docstatus", "=", 1], // Submitted documents
+    //                     ["check_out_date", "=", ""] // No check-out date means not checked out yet
+    //                 ],
+    //                 fields: ["name", "room"]
+    //             },
+    //             callback: function(r) {
+    //                 if(r.message && r.message.length > 0) {
+    //                     // Guest has an existing active check-in
+    //                     let existing = r.message[0];
+    //                     frm.set_value("guest_name", ""); // Clear the guest name field
+    //                     frappe.msgprint(__(`Guest already has an active check-in (${existing.name}) in room ${existing.room}. Please check out the guest first before creating a new check-in.`));
+    //                 }
+    //             }
+    //         });
+    //     }
+    // },
     room: function(frm) {
         if(frm.doc.room) {
             frappe.call({

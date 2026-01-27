@@ -2036,3 +2036,61 @@ def redirect_to_hotel_dashboard_after_checkin(doc, method):
             title="Error in redirect_to_hotel_dashboard_after_checkin",
             message=f"Error for Check In {doc.name}: {str(e)}\n{frappe.get_traceback()}"
         )
+
+
+def update_room_status_on_checkin_submit(doc, method):
+    """
+    Hook function called after Check In is submitted
+    Updates room status to 'Occupied' and sets related fields
+    """
+    try:
+        if not doc.room:
+            return
+        
+        # Import the helper function to update room fields properly
+        from havano_hotel_management.havano_hotel_management_system.doctype.room.room import update_room_fields
+        
+        # Update room status to Occupied and set related fields
+        update_room_fields(doc.room, {
+            "status": "Occupied",
+            "current_checkin": doc.name,
+            "current_guest": doc.guest_name,
+            "checkout_date": doc.check_out_date
+        })
+        
+        frappe.logger().info(f"Room {doc.room} status updated to Occupied after Check In {doc.name} submission")
+        
+    except Exception as e:
+        frappe.log_error(
+            title="Error Updating Room Status on Check In Submit",
+            message=f"Error updating room status for Check In {doc.name}: {str(e)}\n{frappe.get_traceback()}"
+        )
+
+
+def update_room_status_on_checkout_submit(doc, method):
+    """
+    Hook function called after Check Out is submitted
+    Updates room status to 'Available' and clears related fields
+    """
+    try:
+        if not doc.room:
+            return
+        
+        # Import the helper function to update room fields properly
+        from havano_hotel_management.havano_hotel_management_system.doctype.room.room import update_room_fields
+        
+        # Update room status to Available and clear related fields
+        update_room_fields(doc.room, {
+            "status": "Available",
+            "current_checkin": "",
+            "current_guest": "",
+            "checkout_date": None
+        })
+        
+        frappe.logger().info(f"Room {doc.room} status updated to Available after Check Out {doc.name} submission")
+        
+    except Exception as e:
+        frappe.log_error(
+            title="Error Updating Room Status on Check Out Submit",
+            message=f"Error updating room status for Check Out {doc.name}: {str(e)}\n{frappe.get_traceback()}"
+        )
