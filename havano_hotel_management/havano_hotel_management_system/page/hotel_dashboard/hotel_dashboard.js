@@ -24,6 +24,7 @@ frappe.pages['hotel-dashboard'].make_menu_buttons = function(page) {
 	// Create enterprise-style menu container
 	setTimeout(function() {
 		let page_actions = $(".page-actions");
+		
 		if (page_actions.length) {
 			// Add custom CSS for enterprise menu styling
 			if (!$("#hotel-dashboard-menu-styles").length) {
@@ -2579,6 +2580,11 @@ frappe.pages['hotel-dashboard'].render_table = function(data) {
 			status_html += ` <i class="fa fa-times reservation-cancel-icon" data-reservation="${frappe.utils.escape_html(row.reservation)}" data-room="${frappe.utils.escape_html(row.room_name)}" style="cursor: pointer; margin-left: 4px; color: #f44336; font-size: 15px;" title="Cancel Reservation"></i>`;
 		}
 		
+		// Add print icon for occupied rooms
+		if ((status === "Occupied" || status === "Due Out") && row.check_in_name) {
+			status_html += ` <i class="fa fa-print checkin-print-icon" data-checkin="${frappe.utils.escape_html(row.check_in_name)}" style="cursor: pointer; margin-left: 4px; color: #607d8b; font-size: 15px;" title="Print Check In"></i>`;
+		}
+		
 		let row_html = `
 			<tr style="${row_style}">
 				<td style="text-align: center;">
@@ -2613,6 +2619,13 @@ frappe.pages['hotel-dashboard'].render_table = function(data) {
 		let reservation_name = $(this).data("reservation");
 		let room_name = $(this).data("room");
 		me.handle_edit_reservation(reservation_name, room_name);
+	});
+	
+	// Add event handler for check-in print icon
+	$(document).off("click", ".checkin-print-icon").on("click", ".checkin-print-icon", function(e) {
+		e.stopPropagation();
+		let check_in_name = $(this).data("checkin");
+		me.handle_print_checkin(check_in_name);
 	});
 }
 
@@ -2756,6 +2769,206 @@ frappe.pages['hotel-dashboard'].handle_restaurant_pos = function() {
 			}, 5);
 		}
 	});
+}
+
+frappe.pages['hotel-dashboard'].handle_print_checkin = function(check_in_name) {
+	let me = this;
+	
+	if (!check_in_name) {
+		frappe.show_alert({
+			message: __("Check In document not found."),
+			indicator: "red"
+		}, 5);
+		return;
+	}
+	
+	// Fetch print formats from database
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Print Format",
+			filters: {
+				doc_type: "Check In",
+				disabled: 0
+			},
+			fields: ["name"],
+			order_by: "name asc"
+		},
+		callback: function(r) {
+			let print_formats = ["Standard"];
+			let default_print_format = "Standard";
+			
+			// Add fetched print formats
+			if (r.message && r.message.length > 0) {
+				r.message.forEach(function(pf) {
+					if (pf.name !== "Standard" && !print_formats.includes(pf.name)) {
+						print_formats.push(pf.name);
+					}
+				});
+			}
+			
+			// Get default print format from DocType
+			try {
+				if (locals && locals.DocType && locals.DocType["Check In"] && locals.DocType["Check In"].default_print_format) {
+					default_print_format = locals.DocType["Check In"].default_print_format;
+					// Ensure default is in the list
+					if (!print_formats.includes(default_print_format)) {
+						print_formats.unshift(default_print_format);
+					} else {
+						// Move default to front
+						let index = print_formats.indexOf(default_print_format);
+						if (index > 0) {
+							print_formats.splice(index, 1);
+							print_formats.unshift(default_print_format);
+						}
+					}
+				}
+			} catch (e) {
+				// Use first available format if default not found
+				if (print_formats.length > 0) {
+					default_print_format = print_formats[0];
+				}
+			}
+			
+			// Get letterheads
+			let letterheads = Object.keys(frappe.boot.letter_heads || {});
+			let default_letterhead = "";
+			try {
+				if (frappe.defaults.get_default("company")) {
+					let company = frappe.get_doc("Company", frappe.defaults.get_default("company"));
+					default_letterhead = company.default_letter_head || "";
+				}
+			} catch (e) {
+				// Ignore error if company doc not found
+			}
+			
+			// Create print format modal
+			me.create_print_dialog(check_in_name, print_formats, default_print_format, letterheads, default_letterhead);
+		},
+		error: function(r) {
+			frappe.show_alert({
+				message: __("Failed to load print formats. Using default."),
+				indicator: "orange"
+			}, 5);
+			// Fallback to standard format
+			let letterheads = Object.keys(frappe.boot.letter_heads || {});
+			me.create_print_dialog(check_in_name, ["Standard"], "Standard", letterheads, "");
+		}
+	});
+}
+
+frappe.pages['hotel-dashboard'].create_print_dialog = function(check_in_name, print_formats, default_print_format, letterheads, default_letterhead) {
+	let me = this;
+	
+	let dialog = new frappe.ui.Dialog({
+		title: __("Print Check In"),
+		fields: [
+			{
+				fieldtype: "Select",
+				fieldname: "print_format",
+				label: __("Print Format"),
+				options: print_formats,
+				default: default_print_format || print_formats[0],
+				reqd: 1
+			},
+			{
+				fieldtype: "Select",
+				fieldname: "letterhead",
+				label: __("Letter Head"),
+				options: [""].concat(letterheads),
+				default: default_letterhead
+			},
+			{
+				fieldtype: "Section Break",
+				label: __("Preview")
+			},
+			{
+				fieldtype: "HTML",
+				fieldname: "print_preview",
+				options: `<div style="min-height: 500px; border: 1px solid #d1d5db; border-radius: 4px; overflow: hidden;">
+					<iframe id="checkin-print-iframe" style="width: 100%; height: 500px; border: none;" src=""></iframe>
+				</div>`
+			}
+		],
+		primary_action_label: __("Print"),
+		primary_action: function() {
+			let values = dialog.get_values();
+			if (!values) return;
+			
+			// Build print URL
+			let params = new URLSearchParams({
+				doctype: "Check In",
+				name: check_in_name,
+				print_format: values.print_format || default_print_format
+			});
+			
+			if (values.letterhead) {
+				params.append("letterhead", values.letterhead);
+			}
+			
+			// Open print view in new window
+			let print_url = frappe.urllib.get_full_url(`/printview?${params.toString()}`);
+			window.open(print_url, '_blank');
+		},
+		secondary_action_label: __("Download PDF"),
+		secondary_action: function() {
+			let values = dialog.get_values();
+			if (!values) return;
+			
+			// Build PDF download URL
+			let params = new URLSearchParams({
+				doctype: "Check In",
+				name: check_in_name,
+				format: values.print_format || default_print_format
+			});
+			
+			if (values.letterhead) {
+				params.append("letterhead", values.letterhead);
+			}
+			
+			// Download PDF
+			let pdf_url = frappe.urllib.get_full_url(`/api/method/frappe.utils.print_format.download_pdf?${params.toString()}`);
+			window.open(pdf_url, '_blank');
+		}
+	});
+	
+	// Function to update preview
+	function update_preview() {
+		let values = dialog.get_values();
+		if (!values) return;
+		
+		let params = new URLSearchParams({
+			doctype: "Check In",
+			name: check_in_name,
+			print_format: values.print_format || default_print_format
+		});
+		
+		if (values.letterhead) {
+			params.append("letterhead", values.letterhead);
+		}
+		let preview_url = frappe.urllib.get_full_url(`/printview?${params.toString()}`)
+		// let preview_url = frappe.urllib.get_full_url(`/printpreview?${params.toString()}`);
+		let iframe = dialog.$wrapper.find("#checkin-print-iframe");
+		iframe.attr("src", preview_url);
+	}
+	
+	// Update preview when print format or letterhead changes
+	dialog.fields_dict.print_format.$input.on("change", function() {
+		update_preview();
+	});
+	
+	if (dialog.fields_dict.letterhead && dialog.fields_dict.letterhead.$input) {
+		dialog.fields_dict.letterhead.$input.on("change", function() {
+			update_preview();
+		});
+	}
+	
+	dialog.show();
+	
+	// Load initial preview
+	setTimeout(function() {
+		update_preview();
+	}, 100);
 }
 
 frappe.pages['hotel-dashboard'].handle_edit_reservation = function(reservation_name, room_name) {

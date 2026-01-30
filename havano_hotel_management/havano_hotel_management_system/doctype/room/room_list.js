@@ -18,6 +18,11 @@ frappe.listview_settings['Room'] = {
         
         // Then highlight overdue checkouts (after sorting)
         // highlight_overdue_checkouts();
+        
+        // Add button to clear room data
+        listview.page.add_button(__("Clear Room Data"), function() {
+            clear_room_data(listview);
+        });
     },
     
 };
@@ -179,6 +184,97 @@ function highlight_overdue_checkouts() {
             }
         });
     }, 1000); // Increased delay to ensure cards are rendered and sorted
+}
+
+// Function to clear room data
+function clear_room_data(listview) {
+    // Get selected rooms (returns array of docnames)
+    let selected_rooms = listview.get_checked_items(true);
+    
+    // If no rooms selected, ask if user wants to clear all visible rooms
+    if (selected_rooms.length === 0) {
+        frappe.confirm(
+            __("No rooms selected. Do you want to clear data for all visible rooms?"),
+            function() {
+                // Get all visible rooms
+                selected_rooms = listview.data.map(function(row) {
+                    return row.name;
+                });
+                
+                if (selected_rooms.length === 0) {
+                    frappe.show_alert({
+                        message: __("No rooms found to clear."),
+                        indicator: "orange"
+                    }, 5);
+                    return;
+                }
+                
+                proceed_with_clear(selected_rooms, listview);
+            }
+        );
+    } else {
+        // Confirm clearing selected rooms
+        frappe.confirm(
+            __("Are you sure you want to clear data for {0} selected room(s)? This will set Checkout Status, Current Guest, Checkout Date, Current Checkin to empty and Status to Available.", [selected_rooms.length]),
+            function() {
+                proceed_with_clear(selected_rooms, listview);
+            }
+        );
+    }
+}
+
+// Function to proceed with clearing room data
+function proceed_with_clear(room_names, listview) {
+    if (!room_names || room_names.length === 0) {
+        frappe.show_alert({
+            message: __("No rooms selected."),
+            indicator: "orange"
+        }, 5);
+        return;
+    }
+    
+    // Show progress
+    frappe.show_alert({
+        message: __("Clearing room data..."),
+        indicator: "blue"
+    }, 2);
+    
+    // Clear data for each room
+    let promises = room_names.map(function(room_name) {
+        return frappe.call({
+            method: "frappe.client.set_value",
+            args: {
+                doctype: "Room",
+                name: room_name,
+                fieldname: {
+                    checkout_status: "",
+                    current_guest: "",
+                    checkout_date: "",
+                    status: "Available",
+                    current_checkin: "",
+                    reservation: ""
+                }
+            }
+        });
+    });
+    
+    // Wait for all updates to complete
+    Promise.all(promises).then(function() {
+        frappe.show_alert({
+            message: __("Room data cleared successfully for {0} room(s).", [room_names.length]),
+            indicator: "green"
+        }, 5);
+        
+        // Refresh the list view
+        setTimeout(function() {
+            listview.refresh();
+        }, 500);
+    }).catch(function(error) {
+        frappe.show_alert({
+            message: __("Error clearing room data: {0}", [error.message || "Unknown error"]),
+            indicator: "red"
+        }, 5);
+    });
 }
 
 // Function to check for overdue checkouts

@@ -6,6 +6,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_break_gekd",
   "last_name",
   "full_name",
   "guest_customer",
@@ -87,7 +88,6 @@
    "label": "Address"
   },
   {
-   "collapsible": 1,
    "fieldname": "identity_information_section",
    "fieldtype": "Section Break",
    "label": "Identity Information"
@@ -253,12 +253,16 @@
    "fieldtype": "Link",
    "label": "Guest Preference",
    "options": "Room"
+  },
+  {
+   "fieldname": "section_break_gekd",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-18 01:30:59.066663",
+ "modified": "2026-01-30 08:00:41.773636",
  "modified_by": "Administrator",
  "module": "Havano Hotel Management System",
  "name": "Hotel Guest",
@@ -278,6 +282,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

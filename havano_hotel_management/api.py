@@ -1533,7 +1533,8 @@ def get_hotel_dashboard_rooms(filters=None, page_length=20, page_start=0):
                 "status": display_status,  # Use display_status which may be "Due Out" for occupied rooms
                 "original_status": room_status,  # Keep original status for filtering
                 "housekeeping_status": row.housekeeping_status or "",
-                "checkout_status": row.checkout_status or ""
+                "checkout_status": row.checkout_status or "",
+                "check_in_name": row.check_in_name or ""  # Include check_in_name for print functionality
             })
         
         return {
