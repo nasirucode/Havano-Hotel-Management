@@ -92,6 +92,11 @@ class CheckIn(Document):
         
         from frappe.utils import getdate, today
         
+        # Check if room is Out of Order
+        housekeeping_status = frappe.db.get_value("Room", self.room, "housekeeping_status")
+        if housekeeping_status == "Out of Order":
+            frappe.throw(_("Room {0} is Out of Order and cannot be checked in. Please select another room.").format(self.room))
+        
         # Check if room is currently occupied
         room_status = frappe.db.get_value("Room", self.room, "status")
         if room_status == "Occupied":

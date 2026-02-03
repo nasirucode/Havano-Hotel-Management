@@ -99,6 +99,16 @@ function fetch_item_price(frm) {
 }
 
 function checkin(frm) {
+    // Validate: check if room is Out of Order
+    if (frm.doc.housekeeping_status === "Out of Order") {
+        frappe.msgprint({
+            message: __("Room {0} is Out of Order and cannot be checked in. Please select another room.", [frm.doc.name]),
+            indicator: "red",
+            title: __("Cannot Check In")
+        });
+        return;
+    }
+    
     let checkin_doc = frappe.model.get_new_doc("Check In");
     checkin_doc.room = frm.doc.name;
     frappe.set_route("Form", "Check In", checkin_doc.name);

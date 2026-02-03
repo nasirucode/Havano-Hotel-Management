@@ -229,6 +229,16 @@ frappe.pages['hotel-dashboard'].handle_check_in = function() {
 	let selected_room = checked_rooms[0];
 	let room_status = selected_room.status || "Available";
 	
+	// Validate: check if room is Out of Order
+	if (selected_room.housekeeping_status === "Out of Order") {
+		frappe.show_alert({
+			message: __("Room {0} is Out of Order and cannot be checked in. Please select another room.", [selected_room.room]),
+			indicator: "red"
+		}, 5);
+
+		return;
+	}
+	
 	// Validate: room must be vacant or reserved
 	if (room_status !== "Available" && room_status !== "Vacant" && room_status !== "Reserved") {
 		frappe.show_alert({
