@@ -1743,18 +1743,18 @@ frappe.pages['hotel-dashboard'].make_stats_cards = function() {
 					</div>
 				</div>
 			</div>
-			<div class="stat-card" data-status="dirty" style="flex: 1; min-width: 80px; max-width: 100px; padding: 6px; background: #f3e5f5; border-radius: 4px; border: 1px solid #ce93d8; cursor: pointer; transition: all 0.2s;">
+			<div class="stat-card" data-status="dirty" style="flex: 1; min-width: 80px; max-width: 100px; padding: 6px; background: #fff3e0; border-radius: 4px; border: 1px solid #ff9800; cursor: pointer; transition: all 0.2s;">
 				<div style="display: flex; align-items: center; gap: 4px;">
-					<i class="fa fa-exclamation-triangle" style="font-size: 16px; color: #9c27b0;"></i>
+					<i class="fa fa-exclamation-triangle" style="font-size: 16px; color: #f57c00;"></i>
 					<div>
-						<div style="font-size: 18px; font-weight: bold; color: #7b1fa2; line-height: 1.2;" id="stat-dirty">0</div>
+						<div style="font-size: 18px; font-weight: bold; color: #e65100; line-height: 1.2;" id="stat-dirty">0</div>
 						<div style="font-size: 13px; color: #666; line-height: 1.2;">Dirty</div>
 					</div>
 				</div>
 			</div>
-			<div class="stat-card" data-status="out-of-order" style="flex: 1; min-width: 80px; max-width: 100px; padding: 6px; background: #ffebee; border-radius: 4px; border: 1px solid #ef5350; cursor: pointer; transition: all 0.2s;">
+			<div class="stat-card" data-status="out-of-order" style="flex: 1; min-width: 80px; max-width: 100px; padding: 6px; background: #ffebee; border-radius: 4px; border: 1px solid #f44336; cursor: pointer; transition: all 0.2s;">
 				<div style="display: flex; align-items: center; gap: 4px;">
-					<i class="fa fa-ban" style="font-size: 16px; color: #c62828;"></i>
+					<i class="fa fa-ban" style="font-size: 16px; color: #d32f2f;"></i>
 					<div>
 						<div style="font-size: 18px; font-weight: bold; color: #c62828; line-height: 1.2;" id="stat-out-of-order">0</div>
 						<div style="font-size: 13px; color: #666; line-height: 1.2;">Out of Order</div>
