@@ -10,7 +10,7 @@ frappe.listview_settings['Room'] = {
     },
    
     list_view_settings: {
-        fields: ["name", "room_number", "status", "checkout_date", "room_type", "current_guest"]
+        fields: ["name", "room_number", "status", "checkout_date", "room_type", "current_guest", "housekeeping_status"]
     },
     refresh: function(listview) {
         // Add custom button to refresh status counts

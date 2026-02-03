@@ -844,10 +844,10 @@ frappe.pages['hotel-dashboard'].proceed_with_checkout = function(selected_room) 
 							},
 							{
 								fieldtype: "Select",
-								fieldname: "room_condition",
-								label: __("Room Condition"),
-								options: "Clean\nDirty\nMaintenance",
-								default: "Clean",
+								fieldname: "housekeeping_status",
+								label: __("House Keeping Status"),
+								options: "Dirty\nOut of Order",
+								default: "Dirty",
 								reqd: 1
 							},
 							{
@@ -873,9 +873,9 @@ frappe.pages['hotel-dashboard'].proceed_with_checkout = function(selected_room) 
 								return;
 							}
 							
-							if (!values.room_condition) {
+							if (!values.housekeeping_status) {
 								frappe.show_alert({
-									message: __("Please select room condition."),
+									message: __("Please select house keeping status."),
 									indicator: "orange"
 								}, 5);
 
@@ -893,7 +893,7 @@ frappe.pages['hotel-dashboard'].proceed_with_checkout = function(selected_room) 
 								args: {
 									check_in: values.check_in,
 									actual_check_out_time: values.actual_check_out_time,
-									room_condition: values.room_condition,
+									housekeeping_status: values.housekeeping_status,
 									notes: values.notes || "",
 									check_out_by: frappe.session.user
 								},

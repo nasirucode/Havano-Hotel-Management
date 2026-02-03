@@ -453,11 +453,11 @@ async function checkout(frm) {
                         fieldname: 'col_break_2'
                     },
                     {
-                        label: __('Room Condition'),
-                        fieldname: 'room_condition',
+                        label: __('House Keeping Status'),
+                        fieldname: 'housekeeping_status',
                         fieldtype: 'Select',
-                        options: 'Clean\nDirty\nMaintenance',
-                        default: 'Clean',
+                        options: 'Dirty\nOut of Order',
+                        default: 'Dirty',
                         reqd: 1
                     },
                     {
@@ -488,7 +488,7 @@ async function checkout(frm) {
                         args: {
                             check_in: values.check_in,
                             actual_check_out_time: values.actual_check_out_time,
-                            room_condition: values.room_condition,
+                            housekeeping_status: values.housekeeping_status,
                             notes: values.notes || '',
                             check_out_by: values.check_out_by
                         },

@@ -1078,7 +1078,7 @@ def get_total_balance(guest_name=None, company=None, posting_date=None):
 
 
 @frappe.whitelist()
-def create_and_submit_checkout(check_in, actual_check_out_time, room_condition, notes=None, check_out_by=None):
+def create_and_submit_checkout(check_in, actual_check_out_time, housekeeping_status, notes=None, check_out_by=None):
     """
     Create and submit a Check Out document from Check In
     Also updates Check In and Room status
@@ -1099,7 +1099,7 @@ def create_and_submit_checkout(check_in, actual_check_out_time, room_condition, 
         checkout_doc.room = check_in_doc.room
         checkout_doc.actual_check_out_time = actual_check_out_time
         checkout_doc.days_stayed = check_in_doc.nights or ""
-        checkout_doc.room_condition = room_condition
+        checkout_doc.room_condition = housekeeping_status  # Keep room_condition field for backward compatibility
         checkout_doc.check_out_by = check_out_by or frappe.session.user
         checkout_doc.notes = notes or ""
         checkout_doc.balance_due = check_in_doc.balance_due or 0
@@ -1129,7 +1129,8 @@ def create_and_submit_checkout(check_in, actual_check_out_time, room_condition, 
             "status": "Available",
             "current_checkin": "",
             "current_guest": "",
-            "checkout_date": None
+            "checkout_date": None,
+            "housekeeping_status": housekeeping_status
         })
 
         
