@@ -1948,11 +1948,12 @@ frappe.pages['hotel-dashboard'].make_table = function() {
 							<th>Departure</th>
 							<th>Reservation</th>
 							<th style="text-align: right;">Total Balance</th>
+							<th style="width: 60px; text-align: center;">Action</th>
 						</tr>
 					</thead>
 					<tbody id="rooms-table-body">
 						<tr>
-							<td colspan="10" style="text-align: center; padding: 10px;">
+							<td colspan="11" style="text-align: center; padding: 10px;">
 								<i class="fa fa-spinner fa-spin"></i> Loading...
 							</td>
 						</tr>
@@ -2476,7 +2477,7 @@ frappe.pages['hotel-dashboard'].load_rooms = function(force_refresh = false) {
 		// Show loading
 		$("#rooms-table-body").html(`
 			<tr>
-				<td colspan="10" style="text-align: center; padding: 20px;">
+				<td colspan="11" style="text-align: center; padding: 20px;">
 					<i class="fa fa-spinner fa-spin"></i> Loading...
 				</td>
 			</tr>
@@ -2515,7 +2516,7 @@ frappe.pages['hotel-dashboard'].load_rooms = function(force_refresh = false) {
 			console.error("Error loading rooms:", r);
 			$("#rooms-table-body").html(`
 				<tr>
-					<td colspan="10" style="text-align: center; padding: 10px; color: #d32f2f;">
+					<td colspan="11" style="text-align: center; padding: 10px; color: #d32f2f;">
 						Error loading rooms. Please refresh the page.
 					</td>
 				</tr>
@@ -2536,7 +2537,7 @@ frappe.pages['hotel-dashboard'].render_table = function(data) {
 	if (data.length === 0) {
 		tbody.html(`
 			<tr>
-				<td colspan="10" style="text-align: center; padding: 10px; color: #999;">
+				<td colspan="11" style="text-align: center; padding: 10px; color: #999;">
 					No rooms found
 				</td>
 			</tr>
@@ -2590,18 +2591,15 @@ frappe.pages['hotel-dashboard'].render_table = function(data) {
 		
 		// Add housekeeping status indicator
 		if (row.housekeeping_status === "Dirty") {
-			status_display += " (Dirty)";
-			if (!status_badge_style) {
-				status_badge_style = "background-color: #9c27b0; color: white; padding: 1px 4px; border-radius: 2px; font-size: 13px; font-weight: 500;";
-			}
+			status_display = "Dirty";
+			status_badge_style = "background-color: #9c27b0; color: white; padding: 1px 4px; border-radius: 2px; font-size: 13px; font-weight: 500;";
 		}
 		
 		// Add Out of Order status indicator
 		if (row.housekeeping_status === "Out of Order") {
-			status_display += " (Out of Order)";
-			if (!status_badge_style) {
-				status_badge_style = "background-color: #c62828; color: white; padding: 1px 4px; border-radius: 2px; font-size: 13px; font-weight: 500;";
-			}
+			status_display = " Out of Order";
+			status_badge_style = "background-color: #c62828; color: white; padding: 1px 4px; border-radius: 2px; font-size: 13px; font-weight: 500;";
+			
 		}
 		
 		let status_html = status_badge_style 
@@ -2635,6 +2633,9 @@ frappe.pages['hotel-dashboard'].render_table = function(data) {
 				<td>${frappe.utils.escape_html(row.departure || "-")}</td>
 				<td>${(status === "Available" || status === "Vacant") ? "-" : (row.reservation ? `<a href="/app/reservation/${frappe.utils.escape_html(row.reservation)}" target="_blank">${frappe.utils.escape_html(row.reservation)}</a>` : "-")}</td>
 				<td style="text-align: right;">${format_currency(row.total_balance || 0, frappe.defaults.get_default("currency"))}</td>
+				<td style="text-align: center;">
+					<i class="fa fa-edit edit-housekeeping-icon" data-room="${frappe.utils.escape_html(row.room_name)}" data-room-number="${frappe.utils.escape_html(row.room)}" data-current-status="${frappe.utils.escape_html(row.housekeeping_status || "")}" style="cursor: pointer; color: #2196f3; font-size: 16px;" title="Edit House Keeping Status"></i>
+				</td>
 			</tr>
 		`;
 		tbody.append(row_html);
@@ -2660,6 +2661,15 @@ frappe.pages['hotel-dashboard'].render_table = function(data) {
 		e.stopPropagation();
 		let check_in_name = $(this).data("checkin");
 		me.handle_print_checkin(check_in_name);
+	});
+	
+	// Add event handler for edit housekeeping status icon
+	$(document).off("click", ".edit-housekeeping-icon").on("click", ".edit-housekeeping-icon", function(e) {
+		e.stopPropagation();
+		let room_name = $(this).data("room");
+		let room_number = $(this).data("room-number");
+		let current_status = $(this).data("current-status");
+		me.handle_edit_housekeeping_status(room_name, room_number, current_status);
 	});
 }
 
@@ -3004,6 +3014,98 @@ frappe.pages['hotel-dashboard'].create_print_dialog = function(check_in_name, pr
 	setTimeout(function() {
 		update_preview();
 	}, 100);
+}
+
+frappe.pages['hotel-dashboard'].handle_edit_housekeeping_status = function(room_name, room_number, current_status) {
+	let me = this;
+	
+	let dialog = new frappe.ui.Dialog({
+		title: __("Update House Keeping Status"),
+		fields: [
+			{
+				fieldtype: "Data",
+				fieldname: "room",
+				label: __("Room"),
+				default: room_number,
+				read_only: 1
+			},
+			{
+				fieldtype: "Select",
+				fieldname: "housekeeping_status",
+				label: __("House Keeping Status"),
+				options: "Clean\nDirty\nOut of Order",
+				default: current_status || "Clean",
+				reqd: 1
+			}
+		],
+		primary_action_label: __("Update"),
+		primary_action: function() {
+			let values = dialog.get_values();
+			if (!values) {
+				return;
+			}
+			
+			if (!values.housekeeping_status) {
+				frappe.show_alert({
+					message: __("Please select house keeping status."),
+					indicator: "orange"
+				}, 5);
+				return;
+			}
+			
+			// Disable button and show processing
+			let primary_btn = dialog.get_primary_btn();
+			let original_label = primary_btn.html();
+			primary_btn.prop("disabled", true).html(__("Updating..."));
+			
+			// Update housekeeping status
+			frappe.call({
+				method: "havano_hotel_management.api.update_room_housekeeping_status",
+				args: {
+					room_name: room_name,
+					housekeeping_status: values.housekeeping_status
+				},
+				freeze_message: __("Updating House Keeping Status..."),
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						dialog.hide();
+						frappe.show_alert({
+							message: __("House Keeping Status updated successfully."),
+							indicator: "green"
+						}, 5);
+						
+						// Refresh dashboard
+						setTimeout(function() {
+							me.load_stats();
+							me.load_rooms();
+						}, 500);
+					} else {
+						// Re-enable button
+						primary_btn.prop("disabled", false).html(original_label);
+						let error_msg = r.message.message || r.message.error || __("Failed to update house keeping status.");
+						frappe.show_alert({
+							message: error_msg,
+							indicator: "red"
+						}, 5);
+					}
+				},
+				error: function(r) {
+					// Re-enable button
+					primary_btn.prop("disabled", false).html(original_label);
+					let error_msg = __("Failed to update house keeping status.");
+					if (r.message && r.message.exc) {
+						error_msg += " " + r.message.exc;
+					}
+					frappe.show_alert({
+						message: error_msg,
+						indicator: "red"
+					}, 5);
+				}
+			});
+		}
+	});
+	
+	dialog.show();
 }
 
 frappe.pages['hotel-dashboard'].handle_edit_reservation = function(reservation_name, room_name) {

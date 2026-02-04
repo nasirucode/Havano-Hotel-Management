@@ -2012,6 +2012,50 @@ def get_hotel_dashboard_url():
 
 
 @frappe.whitelist()
+def update_room_housekeeping_status(room_name, housekeeping_status):
+    """
+    Update the housekeeping status of a room
+    """
+    try:
+        # Validate inputs
+        if not room_name:
+            frappe.throw(_("Room name is required."))
+        
+        if not housekeeping_status:
+            frappe.throw(_("Housekeeping status is required."))
+        
+        # Validate housekeeping status value
+        valid_statuses = ["Clean", "Dirty", "Out of Order"]
+        if housekeeping_status not in valid_statuses:
+            frappe.throw(_("Invalid housekeeping status. Must be one of: {0}").format(", ".join(valid_statuses)))
+        
+        # Check if room exists
+        if not frappe.db.exists("Room", room_name):
+            frappe.throw(_("Room {0} does not exist.").format(room_name))
+        
+        # Update housekeeping status
+        frappe.db.set_value("Room", room_name, "housekeeping_status", housekeeping_status, update_modified=True)
+        
+        # Commit the change
+        frappe.db.commit()
+        
+        return {
+            "success": True,
+            "message": _("Housekeeping status updated successfully.")
+        }
+    except Exception as e:
+        frappe.log_error(
+            title="Error Updating Room Housekeeping Status",
+            message=f"Error updating housekeeping status for room {room_name}: {str(e)}\n{frappe.get_traceback()}"
+        )
+        return {
+            "success": False,
+            "error": str(e),
+            "message": f"Failed to update housekeeping status: {str(e)}"
+        }
+
+
+@frappe.whitelist()
 def is_restaurant_pos_app_installed():
     """
     Check if havano_restaurant_pos app is installed
