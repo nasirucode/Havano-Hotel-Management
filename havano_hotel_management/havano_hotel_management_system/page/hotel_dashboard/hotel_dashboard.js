@@ -1733,7 +1733,7 @@ frappe.pages['hotel-dashboard'].check_and_show_shift_modal = function() {
 	frappe.call({
 		method: "havano_hotel_management.api.get_hotel_shift_status",
 		callback: function(r) {
-			if (r.message) {
+			if (r.message && r.message.show_close_shift_popup) {
 				me.show_shift_modal(r.message);
 			}
 		}

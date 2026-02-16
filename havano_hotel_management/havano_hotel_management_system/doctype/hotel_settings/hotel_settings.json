@@ -4,7 +4,7 @@
  "creation": "2025-04-03 14:12:24.891766",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": [
+"field_order": [
   "hotel_customer_group",
   "hotel_item_group",
   "default_check_out_time",
@@ -12,8 +12,10 @@
   "column_break_ezvn",
   "allow_overbooking",
   "allow_early_check_in__check_out_without_extra_cost",
-  "check_in_policy"
- ],
+  "check_in_policy",
+  "section_break_shift",
+  "close_shift_after_time"
+],
  "fields": [
   {
    "fieldname": "default_check_out_time",
@@ -63,6 +65,17 @@
    "fieldname": "check_in_policy",
    "fieldtype": "Small Text",
    "label": "Check In policy"
+  },
+  {
+   "fieldname": "section_break_shift",
+   "fieldtype": "Section Break",
+   "label": "Shift Settings"
+  },
+  {
+   "fieldname": "close_shift_after_time",
+   "fieldtype": "Time",
+   "label": "Close Shift Popup After Time",
+   "description": "Only show the close shift popup on dashboard when current time is past this time. Leave blank to always show."
   }
  ],
  "index_web_pages_for_search": 1,

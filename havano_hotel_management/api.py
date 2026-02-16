@@ -2059,7 +2059,8 @@ def update_room_housekeeping_status(room_name, housekeeping_status):
 def get_hotel_shift_status():
     """
     Get Hotel Shift status for the logged-in user.
-    Returns: { has_open_shift: bool, shift_name: str }
+    Returns: { has_open_shift: bool, shift_name: str, close_shift_after_time: str, show_close_shift_popup: bool }
+    show_close_shift_popup: only True for close shift when current time is past close_shift_after_time (or if not set)
     """
     try:
         user = frappe.session.user
@@ -2082,13 +2083,25 @@ def get_hotel_shift_status():
                 },
                 fieldname="name"
             )
+        has_open_shift = bool(open_shift)
+        close_shift_after_time = frappe.db.get_single_value("Hotel Settings", "close_shift_after_time")
+        show_close_shift_popup = True
+        if has_open_shift and close_shift_after_time:
+            from datetime import datetime
+            from frappe.utils.data import get_time
+            now = datetime.now().time()
+            close_time = get_time(close_shift_after_time)
+            if close_time:
+                show_close_shift_popup = now >= close_time
         return {
-            "has_open_shift": bool(open_shift),
-            "shift_name": open_shift or None
+            "has_open_shift": has_open_shift,
+            "shift_name": open_shift or None,
+            "close_shift_after_time": str(close_shift_after_time) if close_shift_after_time else None,
+            "show_close_shift_popup": show_close_shift_popup
         }
     except Exception as e:
         frappe.log_error(title="Error Getting Hotel Shift Status", message=str(e))
-        return {"has_open_shift": False, "shift_name": None}
+        return {"has_open_shift": False, "shift_name": None, "show_close_shift_popup": False}
 
 
 @frappe.whitelist()
