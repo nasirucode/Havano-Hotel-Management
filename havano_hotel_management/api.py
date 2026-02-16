@@ -2056,6 +2056,114 @@ def update_room_housekeeping_status(room_name, housekeeping_status):
 
 
 @frappe.whitelist()
+def get_hotel_shift_status():
+    """
+    Get Hotel Shift status for the logged-in user.
+    Returns: { has_open_shift: bool, shift_name: str }
+    """
+    try:
+        user = frappe.session.user
+        open_shift = frappe.db.get_value(
+            "Hotel Shift",
+            filters={
+                "docstatus": 0,
+                "status": "Open",
+                "receptionist": user
+            },
+            fieldname="name"
+        )
+        if not open_shift:
+            open_shift = frappe.db.get_value(
+                "Hotel Shift",
+                filters={
+                    "docstatus": 0,
+                    "status": "Open",
+                    "shift_supervisor": user
+                },
+                fieldname="name"
+            )
+        return {
+            "has_open_shift": bool(open_shift),
+            "shift_name": open_shift or None
+        }
+    except Exception as e:
+        frappe.log_error(title="Error Getting Hotel Shift Status", message=str(e))
+        return {"has_open_shift": False, "shift_name": None}
+
+
+@frappe.whitelist()
+def open_hotel_shift():
+    """Create a new Hotel Shift (open shift) for the logged-in user."""
+    try:
+        user = frappe.session.user
+        # Check if user already has an open shift
+        status = get_hotel_shift_status()
+        if status.get("has_open_shift"):
+            return {
+                "success": False,
+                "message": _("You already have an open shift: {0}").format(status.get("shift_name")),
+                "shift_name": status.get("shift_name")
+            }
+        doc = frappe.new_doc("Hotel Shift")
+        doc.shift_supervisor = user
+        doc.receptionist = user
+        doc.shift_start = frappe.utils.now_datetime()
+        doc.status = "Open"
+        doc.company = frappe.defaults.get_user_default("Company")
+        doc.insert()
+        frappe.db.commit()
+        return {
+            "success": True,
+            "shift_name": doc.name,
+            "message": _("Shift {0} opened successfully.").format(doc.name)
+        }
+    except Exception as e:
+        frappe.log_error(title="Error Opening Hotel Shift", message=str(e))
+        frappe.db.rollback()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": _("Failed to open shift: {0}").format(str(e))
+        }
+
+
+@frappe.whitelist()
+def close_hotel_shift(shift_name):
+    """Close and submit the Hotel Shift for the logged-in user."""
+    try:
+        if not shift_name:
+            return {"success": False, "message": _("Shift name is required.")}
+        user = frappe.session.user
+        doc = frappe.get_doc("Hotel Shift", shift_name)
+        if doc.docstatus != 0:
+            return {"success": False, "message": _("Shift {0} is already submitted.").format(shift_name)}
+        if doc.receptionist != user and doc.shift_supervisor != user:
+            return {"success": False, "message": _("You are not authorized to close this shift.")}
+        # Set shift end and status
+        doc.shift_end = frappe.utils.now_datetime()
+        doc.status = "Closed"
+        doc.save()
+        # Refresh shift data before submit
+        doc.refresh_shift_data()
+        doc.save()
+        doc.submit()
+        frappe.db.commit()
+        return {
+            "success": True,
+            "shift_name": doc.name,
+            "message": _("Shift {0} closed and submitted successfully.").format(doc.name)
+        }
+    except Exception as e:
+        frappe.log_error(title="Error Closing Hotel Shift", message=str(e))
+        frappe.db.rollback()
+        return {
+            "success": False,
+            "error": str(e),
+            "message": _("Failed to close shift: {0}").format(str(e))
+        }
+
+
+@frappe.whitelist()
 def is_restaurant_pos_app_installed():
     """
     Check if havano_restaurant_pos app is installed

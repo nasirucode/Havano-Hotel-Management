@@ -3,4 +3,5 @@
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
 
 [post_model_sync]
+havano_hotel_management.patches.v2026_02_16_fix_hotel_shift_child_module
 # Patches added in this section will be executed after doctypes are migrated

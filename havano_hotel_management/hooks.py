@@ -129,11 +129,11 @@ doctype_js = {
 
 # DocType Class
 # ---------------
-# Override standard doctype classes
-
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+# Override standard doctype classes - explicit paths for Hotel Shift child tables to fix module resolution
+override_doctype_class = {
+	"Hotel Shift Revenue by Center": ["havano_hotel_management.havano_hotel_management_system.doctype.hotel_shift_revenue_by_center.hotel_shift_revenue_by_center.HotelShiftRevenueByCenter"],
+	"Hotel Shift User": ["havano_hotel_management.havano_hotel_management_system.doctype.hotel_shift_user.hotel_shift_user.HotelShiftUser"],
+}
 
 # Document Events
 # ---------------

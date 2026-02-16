@@ -119,6 +119,19 @@ frappe.pages['hotel-dashboard'].make_menu_buttons = function(page) {
 		}
 	}, 50);
 	
+	// Group 0: Shift Management
+	page.add_button(`<i class="fa fa-clock-o"></i> <span>${__("Shift")}</span>`, function() {
+		me.show_shift_modal();
+	}, {
+		btn_class: "btn-enterprise",
+		id: "btn-hotel-shift"
+	});
+
+	// Add separator
+	setTimeout(function() {
+		$(".page-actions").append('<div class="menu-separator"></div>');
+	}, 75);
+
 	// Group 1: Core Operations (Check In, Check Out)
 	page.add_button(`<i class="fa fa-sign-in"></i> <span>${__("Check In")}</span>`, function() {
 		me.handle_check_in();
@@ -1669,6 +1682,9 @@ frappe.pages['hotel-dashboard'].make_dashboard = function(page) {
 	
 	// Run background tasks
 	me.run_background_tasks();
+
+	// Check shift status and show modal
+	me.check_and_show_shift_modal();
 }
 
 frappe.pages['hotel-dashboard'].run_background_tasks = function() {
@@ -1711,6 +1727,145 @@ frappe.pages['hotel-dashboard'].run_background_tasks = function() {
 		async: true
 	});
 }
+
+frappe.pages['hotel-dashboard'].check_and_show_shift_modal = function() {
+	let me = this;
+	frappe.call({
+		method: "havano_hotel_management.api.get_hotel_shift_status",
+		callback: function(r) {
+			if (r.message) {
+				me.show_shift_modal(r.message);
+			}
+		}
+	});
+};
+
+frappe.pages['hotel-dashboard'].show_shift_modal = function(shift_status) {
+	let me = this;
+	if (!shift_status) {
+		frappe.call({
+			method: "havano_hotel_management.api.get_hotel_shift_status",
+			callback: function(r) {
+				if (r.message) {
+					me._render_shift_modal(r.message);
+				}
+			}
+		});
+	} else {
+		me._render_shift_modal(shift_status);
+	}
+};
+
+frappe.pages['hotel-dashboard']._render_shift_modal = function(shift_status) {
+	let me = this;
+	let has_open_shift = shift_status.has_open_shift;
+	let shift_name = shift_status.shift_name;
+
+	let d = new frappe.ui.Dialog({
+		title: __("Hotel Shift"),
+		size: "small",
+		primary_action_label: has_open_shift ? __("Close Shift") : __("Open Shift"),
+		secondary_action_label: __("Dismiss"),
+		primary_action: function() {
+			if (has_open_shift) {
+				frappe.call({
+					method: "havano_hotel_management.api.close_hotel_shift",
+					args: { shift_name: shift_name },
+					freeze: true,
+					callback: function(r) {
+						if (r.message && r.message.success) {
+							frappe.show_alert({ message: r.message.message, indicator: "green" }, 5);
+							me._animate_shift_modal_close(d, function() {
+								d.hide();
+								me.load_stats();
+								me.load_rooms();
+							});
+						} else {
+							frappe.msgprint({
+								title: __("Error"),
+								message: r.message ? r.message.message : __("Failed to close shift"),
+								indicator: "red"
+							});
+						}
+					}
+				});
+			} else {
+				frappe.call({
+					method: "havano_hotel_management.api.open_hotel_shift",
+					freeze: true,
+					callback: function(r) {
+						if (r.message && r.message.success) {
+							frappe.show_alert({ message: r.message.message, indicator: "green" }, 5);
+							me._animate_shift_modal_close(d, function() {
+								d.hide();
+							});
+						} else {
+							frappe.msgprint({
+								title: __("Error"),
+								message: r.message ? r.message.message : __("Failed to open shift"),
+								indicator: "red"
+							});
+						}
+					}
+				});
+			}
+		},
+		secondary_action: function() {
+			me._animate_shift_modal_close(d, function() {
+				d.hide();
+			});
+		},
+		onhide: function() {
+			d.$wrapper.removeClass("hotel-shift-modal modal-hiding");
+		}
+	});
+
+	// Add custom class for styling and animations
+	d.$wrapper.addClass("hotel-shift-modal");
+
+	// Update title with icon
+	d.$wrapper.find(".modal-title").html(
+		`<span class="shift-icon"><i class="fa fa-clock-o"></i></span> ${__("Hotel Shift")}`
+	);
+
+	if (has_open_shift) {
+		d.$body.html(`
+			<div class="shift-status-card">
+				<div class="shift-status-icon close">
+					<i class="fa fa-sign-out"></i>
+				</div>
+				<div class="shift-status-content">
+					<p style="margin: 0;">${__("You have an open shift:")} <strong>${shift_name}</strong></p>
+					<p class="text-muted" style="margin: 0;">${__("Click 'Close Shift' to submit the shift and finalize.")}</p>
+				</div>
+			</div>
+		`);
+	} else {
+		d.$body.html(`
+			<div class="shift-status-card">
+				<div class="shift-status-icon open">
+					<i class="fa fa-sign-in"></i>
+				</div>
+				<div class="shift-status-content">
+					<p style="margin: 0;">${__("No open shift found for your user.")}</p>
+					<p class="text-muted" style="margin: 0;">${__("Click 'Open Shift' to start a new shift.")}</p>
+				</div>
+			</div>
+		`);
+	}
+	d.show();
+};
+
+frappe.pages['hotel-dashboard']._animate_shift_modal_close = function(dialog, callback) {
+	if (dialog.$wrapper && dialog.$wrapper.hasClass("hotel-shift-modal")) {
+		dialog.$wrapper.addClass("modal-hiding");
+		setTimeout(function() {
+			if (callback) callback();
+		}, 250);
+	} else {
+		if (callback) callback();
+	}
+};
 
 frappe.pages['hotel-dashboard'].make_stats_cards = function() {
 	let me = this;
