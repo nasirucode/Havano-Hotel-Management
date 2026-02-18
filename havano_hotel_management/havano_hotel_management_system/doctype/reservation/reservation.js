@@ -6,7 +6,7 @@ frappe.ui.form.on("Reservation", {
         frm.set_query("room", () => {
             return {
                 filters: {
-                    "status": ["not in", ["Occupied"]]
+                    "status": ["not in", ["Occupied", "Reserved"]]
                 }
             }
         })
@@ -32,6 +32,12 @@ frappe.ui.form.on("Reservation", {
     },
     nights: function(frm) {
         set_check_out_date(frm)
+    },
+    on_submit(frm){
+        setTimeout(function() {
+            frappe.set_route("hotel-dashboard");
+        })
+        
     }
 });
 

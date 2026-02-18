@@ -1,0 +1,245 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-02-16 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "status",
+  "column_break_1",
+  "shift_start",
+  "shift_end",
+  "section_break_staff",
+  "shift_supervisor",
+  "column_break_wfxl",
+  "receptionist",
+  "section_break_rooms",
+  "available_rooms",
+  "rooms_checked_in",
+  "vacancy_rooms",
+  "occupancy_ratio",
+  "column_break_rooms",
+  "dirty_rooms",
+  "out_of_order",
+  "overdue_out",
+  "reserved",
+  "section_break_financial",
+  "total_cash_paid",
+  "total_cash_outstanding",
+  "total_revenue",
+  "column_break_financial",
+  "company",
+  "section_break_users",
+  "shift_users",
+  "section_break_revenue",
+  "revenue_by_centers",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "HS-.YYYY.-"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Open\nClosed"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shift_start",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Shift Start"
+  },
+  {
+   "fieldname": "shift_end",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Shift End"
+  },
+  {
+   "fieldname": "section_break_staff",
+   "fieldtype": "Section Break",
+   "label": "Staff (on Opening)"
+  },
+  {
+   "fieldname": "shift_supervisor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Shift Supervisor",
+   "options": "User"
+  },
+  {
+   "fieldname": "receptionist",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Receptionist",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_break_rooms",
+   "fieldtype": "Section Break",
+   "label": "Room Status (at Shift Close)"
+  },
+  {
+   "fieldname": "available_rooms",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Available Rooms"
+  },
+  {
+   "fieldname": "rooms_checked_in",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Rooms Checked IN"
+  },
+  {
+   "fieldname": "vacancy_rooms",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Vacancy Rooms"
+  },
+  {
+   "fieldname": "column_break_rooms",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dirty_rooms",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Dirty Rooms"
+  },
+  {
+   "fieldname": "out_of_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Out of Order"
+  },
+  {
+   "fieldname": "overdue_out",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Overdue Out"
+  },
+  {
+   "fieldname": "reserved",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Reserved"
+  },
+  {
+   "fieldname": "occupancy_ratio",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Occupancy Ratio",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_financial",
+   "fieldtype": "Section Break",
+   "label": "Financial Summary"
+  },
+  {
+   "fieldname": "total_cash_paid",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Cash Paid"
+  },
+  {
+   "fieldname": "total_cash_outstanding",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Cash Outstanding"
+  },
+  {
+   "fieldname": "total_revenue",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Revenue"
+  },
+  {
+   "fieldname": "column_break_financial",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "section_break_users",
+   "fieldtype": "Section Break",
+   "label": "Users on Shift"
+  },
+  {
+   "fieldname": "shift_users",
+   "fieldtype": "Table",
+   "label": "Shift Users (Previous users who were on the shift)",
+   "options": "Hotel Shift User"
+  },
+  {
+   "fieldname": "section_break_revenue",
+   "fieldtype": "Section Break",
+   "label": "Revenue by Centers"
+  },
+  {
+   "fieldname": "revenue_by_centers",
+   "fieldtype": "Table",
+   "label": "Revenue by Centers (Rooms, Restaurant, etc.)",
+   "options": "Hotel Shift Revenue by Center"
+  },
+  {
+   "fieldname": "column_break_wfxl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Hotel Shift",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-02-18 06:38:13.453934",
+ "modified_by": "Administrator",
+ "module": "Havano Hotel Management System",
+ "name": "Hotel Shift",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -43,7 +43,9 @@ app_include_css = "/assets/havano_hotel_management/css/app.css"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Sales Invoice": "public/js/custom_scripts/sales_invoice.js"
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -127,11 +129,11 @@ app_include_css = "/assets/havano_hotel_management/css/app.css"
 
 # DocType Class
 # ---------------
-# Override standard doctype classes
-
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+# Override standard doctype classes - explicit paths for Hotel Shift child tables to fix module resolution
+override_doctype_class = {
+	"Hotel Shift Revenue by Center": ["havano_hotel_management.havano_hotel_management_system.doctype.hotel_shift_revenue_by_center.hotel_shift_revenue_by_center.HotelShiftRevenueByCenter"],
+	"Hotel Shift User": ["havano_hotel_management.havano_hotel_management_system.doctype.hotel_shift_user.hotel_shift_user.HotelShiftUser"],
+}
 
 # Document Events
 # ---------------
@@ -148,7 +150,17 @@ app_include_css = "/assets/havano_hotel_management/css/app.css"
 doc_events = {
     "Check In": {
         # "validate": "havano_hotel_management.api.validate_check_in",
-        "on_submit": "havano_hotel_management.api.create_sales_invoice"
+        "on_submit": [
+            "havano_hotel_management.api.create_sales_invoice",
+            "havano_hotel_management.api.redirect_to_hotel_dashboard_after_checkin",
+            "havano_hotel_management.api.update_room_status_on_checkin_submit"
+        ],
+        "after_submit": [
+            "havano_hotel_management.api.redirect_to_hotel_dashboard_after_checkin"
+        ]
+    },
+    "Check Out": {
+        "on_submit": "havano_hotel_management.api.update_room_status_on_checkout_submit"
     },
     "Booking": {
         # "validate": "havano_hotel_management.api.validate_booking",
@@ -156,6 +168,9 @@ doc_events = {
     },
     "Customer": {
         "after_insert": "havano_hotel_management.api.create_hotel_guest_from_customer"
+    },
+    "Payment Entry": {
+        "on_submit": "havano_hotel_management.api.update_check_in_balance_on_payment_entry_submit"
     },
 }
 
