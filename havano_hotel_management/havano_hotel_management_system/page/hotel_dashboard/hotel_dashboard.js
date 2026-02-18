@@ -210,7 +210,23 @@ frappe.pages['hotel-dashboard'].make_menu_buttons = function(page) {
 
 frappe.pages['hotel-dashboard'].handle_check_in = function() {
 	let me = this;
-	
+
+	// Validate: user must have an open shift to create Check In
+	frappe.call({
+		method: "havano_hotel_management.api.get_hotel_shift_status",
+		callback: function(r) {
+			if (r.message && !r.message.has_open_shift) {
+				me.show_shift_modal(r.message);
+				return;
+			}
+			me._proceed_with_check_in();
+		}
+	});
+};
+
+frappe.pages['hotel-dashboard']._proceed_with_check_in = function() {
+	let me = this;
+
 	// Get all checked rooms
 	let checked_rooms = [];
 	$(".room-checkbox:checked").each(function() {

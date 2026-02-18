@@ -7,9 +7,21 @@ from frappe import _
 
 class CheckIn(Document):
     def validate(self):
+        self.validate_open_shift_required()
         self.set_checkout_status()
         self.validate_room_availability()
         self.calculate_payment_fields()
+
+    def validate_open_shift_required(self):
+        """Require an open Hotel Shift to create or save a draft Check In."""
+        if self.docstatus != 0:
+            return
+        from havano_hotel_management.api import get_hotel_shift_status
+        status = get_hotel_shift_status()
+        if not status.get("has_open_shift"):
+            frappe.throw(
+                _("You must have an open shift to create a Check In. Please open a shift first from the Hotel Dashboard.")
+            )
     
     def calculate_payment_fields(self):
         """Calculate and set total_balance, amount_paid, and balance_due"""
@@ -167,14 +179,15 @@ class CheckIn(Document):
                 frappe.flags.updating_check_in_fields = False
     
     def set_checkout_status(self):
-        """Set checkout status based on actual_checkout_date and check_out_date"""
+        """Set checkout status based on actual_checkout_date and check_out_date.
+        Uses Default Check Out Time from Hotel Settings when set (and not 24:00:00):
+        overdue at that time on checkout date; otherwise overdue when checkout date < today."""
         # Always check actual_checkout_date first - if it exists, guest is checked out
         if self.actual_checkout_date:
             self.checkout_status = "Out"
         elif self.check_out_date:
-            # Check if check_out_date is past today (overdue)
-            from frappe.utils import getdate, today
-            if getdate(self.check_out_date) < getdate(today()):
+            from havano_hotel_management.api import is_check_in_overdue
+            if is_check_in_overdue(self.check_out_date):
                 self.checkout_status = "Overdue"
             else:
                 self.checkout_status = "In"

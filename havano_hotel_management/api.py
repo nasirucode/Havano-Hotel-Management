@@ -1,7 +1,113 @@
 import frappe 
 from frappe import _
-from frappe.utils import flt, getdate, today
+from frappe.utils import flt, getdate, today, get_datetime, now_datetime
 import json
+from datetime import datetime, time, timedelta
+
+
+def is_check_in_overdue(check_out_date, default_check_out_time=None):
+	"""
+	Returns True if the check-in is overdue based on check_out_date and Default Check Out Time.
+
+	- If default_check_out_time is not set or equals 24:00:00/00:00:00 (end of day):
+	  overdue when check_out_date < today (current behavior)
+	- If default_check_out_time is set and not 24:00:00:
+	  overdue when now >= (check_out_date + default_check_out_time) on the same date
+	"""
+	if not check_out_date:
+		return False
+
+	from frappe.utils import getdate
+
+	checkout_date = getdate(check_out_date)
+	today_date = getdate(today())
+
+	if default_check_out_time is None:
+		default_check_out_time = frappe.db.get_single_value("Hotel Settings", "default_check_out_time")
+
+	# Treat None, empty, 00:00:00, 24:00:00 as "end of day" -> use date-only logic
+	use_date_only = True
+	if default_check_out_time is not None:
+		if isinstance(default_check_out_time, (int, float)):
+			# Timedelta seconds: 0 or 86400 = end of day
+			secs = int(default_check_out_time)
+			use_date_only = secs == 0 or secs >= 86400
+		elif isinstance(default_check_out_time, timedelta):
+			use_date_only = default_check_out_time.total_seconds() == 0 or default_check_out_time.total_seconds() >= 86400
+		elif isinstance(default_check_out_time, (str, time)):
+			if isinstance(default_check_out_time, str):
+				parts = default_check_out_time.strip().split(":")
+				h = int(parts[0]) if parts else 0
+				m = int(parts[1]) if len(parts) > 1 else 0
+				s = int(parts[2]) if len(parts) > 2 else 0
+			else:
+				h, m, s = default_check_out_time.hour, default_check_out_time.minute, default_check_out_time.second
+			# 00:00:00 or 24:00:00 = end of day
+			use_date_only = (h == 0 and m == 0 and s == 0) or (h >= 24)
+
+	if use_date_only:
+		return checkout_date < today_date
+
+	# Time-based: overdue when now >= checkout_date + default_check_out_time
+	now = now_datetime()
+	if isinstance(default_check_out_time, (int, float)):
+		secs = int(default_check_out_time) % 86400
+		checkout_dt = datetime.combine(checkout_date, time(0, 0, 0)) + timedelta(seconds=secs)
+	elif isinstance(default_check_out_time, timedelta):
+		secs = int(default_check_out_time.total_seconds()) % 86400
+		checkout_dt = datetime.combine(checkout_date, time(0, 0, 0)) + timedelta(seconds=secs)
+	elif isinstance(default_check_out_time, time):
+		checkout_dt = datetime.combine(checkout_date, default_check_out_time)
+	elif isinstance(default_check_out_time, str):
+		parts = default_check_out_time.strip().split(":")
+		h = int(parts[0]) if parts else 0
+		m = int(parts[1]) if len(parts) > 1 else 0
+		s = int(parts[2]) if len(parts) > 2 else 0
+		checkout_dt = datetime.combine(checkout_date, time(h, m, s))
+	else:
+		return checkout_date < today_date
+
+	return now >= checkout_dt
+
+
+def get_overdue_sql_condition():
+	"""
+	Returns (condition_fragment, values) for SQL WHERE clause to filter overdue check-ins.
+	Used when joining with Check In. Condition uses checkin alias.
+	"""
+	default_check_out_time = frappe.db.get_single_value("Hotel Settings", "default_check_out_time")
+	use_date_only = True
+	time_str = None
+
+	if default_check_out_time is not None:
+		if isinstance(default_check_out_time, (int, float)):
+			secs = int(default_check_out_time) % 86400
+			if secs != 0 and secs < 86400:
+				use_date_only = False
+				h, r = divmod(secs, 3600)
+				m, s = divmod(r, 60)
+				time_str = f"{h:02d}:{m:02d}:{s:02d}"
+		elif isinstance(default_check_out_time, timedelta):
+			secs = int(default_check_out_time.total_seconds()) % 86400
+			if secs != 0 and secs < 86400:
+				use_date_only = False
+				h, r = divmod(secs, 3600)
+				m, s = divmod(r, 60)
+				time_str = f"{h:02d}:{m:02d}:{s:02d}"
+		elif isinstance(default_check_out_time, str) and default_check_out_time.strip():
+			t = default_check_out_time.strip()
+			if t not in ("00:00:00", "24:00:00", "0:00:00"):
+				use_date_only = False
+				time_str = t
+		elif isinstance(default_check_out_time, time):
+			if (default_check_out_time.hour, default_check_out_time.minute, default_check_out_time.second) != (0, 0, 0):
+				use_date_only = False
+				time_str = default_check_out_time.strftime("%H:%M:%S")
+
+	if use_date_only:
+		return "checkin.check_out_date < CURDATE()", []
+	return "TIMESTAMP(checkin.check_out_date, %s) <= NOW()", [time_str]
+
 
 def validate_check_in(doc, method):
     if frappe.db.exists("Check In", {"reservation": doc.reservation}):
@@ -1250,10 +1356,6 @@ def mark_rooms_reserved_for_today():
 def get_hotel_dashboard_stats():
     """Get room statistics for dashboard cards"""
     try:
-        from frappe.utils import getdate, today
-        
-        today_date = getdate(today())
-        
         # Get all rooms with their check-in information for accurate due-out calculation
         rooms_query = """
             SELECT 
@@ -1295,17 +1397,10 @@ def get_hotel_dashboard_stats():
             if room.housekeeping_status == "Out of Order":
                 stats["out_of_order"] += 1
             
-            # Count due out (rooms with check_out_date in the past, not today)
-            # Use check_in check_out_date if available, otherwise fall back to room.checkout_date
+            # Count due out (uses Default Check Out Time from Hotel Settings when set)
             if room.status == "Occupied":
-                checkout_date_to_check = None
-                if room.checkin_check_out_date:
-                    checkout_date_to_check = getdate(room.checkin_check_out_date)
-                elif room.checkout_date:
-                    checkout_date_to_check = getdate(room.checkout_date)
-                
-                # Only count as due out if checkout date is < today (past dates only, not today)
-                if checkout_date_to_check and checkout_date_to_check < today_date:
+                checkout_date_to_check = room.checkin_check_out_date or room.checkout_date
+                if checkout_date_to_check and is_check_in_overdue(checkout_date_to_check):
                     stats["due_out"] += 1
         
         return stats
@@ -1354,9 +1449,11 @@ def get_hotel_dashboard_rooms(filters=None, page_length=20, page_start=0):
                 conditions.append("room.status = %s")
                 values.append("Reserved")
             elif filters["status"] == "Due Out":
-                # Filter for occupied rooms with check_out_date < today (not <= today, only past dates)
-                conditions.append("room.status = %s AND checkin.check_out_date < CURDATE()")
+                # Filter for occupied rooms that are overdue (uses Default Check Out Time when set)
+                overdue_cond, overdue_vals = get_overdue_sql_condition()
+                conditions.append("room.status = %s AND " + overdue_cond)
                 values.append("Occupied")
+                values.extend(overdue_vals)
             elif filters["status"] == "Dirty":
                 conditions.append("room.housekeeping_status = %s")
                 values.append("Dirty")
@@ -1380,11 +1477,16 @@ def get_hotel_dashboard_rooms(filters=None, page_length=20, page_start=0):
             values.append(f"%{filters['room_number']}%")
         
         where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
-        
+        # Due Out filter requires checkin join for the overdue condition
+        count_join = ""
+        if filters.get("status") == "Due Out":
+            count_join = " LEFT JOIN `tabCheck In` as checkin ON room.current_checkin = checkin.name AND checkin.docstatus = 1"
+
         # Get total count
         count_query = f"""
             SELECT COUNT(*) as total
             FROM `tabRoom` as room
+            {count_join}
             {where_clause}
         """
         try:
@@ -1442,8 +1544,7 @@ def get_hotel_dashboard_rooms(filters=None, page_length=20, page_start=0):
         # Format the data
         formatted_data = []
         company = frappe.defaults.get_user_default("company")
-        from frappe.utils import getdate, today
-        
+
         for idx, row in enumerate(data, start=page_start + 1):
             # Format arrival date - use Reservation check_in_date for reserved rooms, Check In for occupied
             arrival_str = ""
@@ -1464,30 +1565,21 @@ def get_hotel_dashboard_rooms(filters=None, page_length=20, page_start=0):
             
             # Format departure date - use Reservation check_out_date for reserved rooms, Check In for occupied
             departure_str = ""
-            departure_date = None
             if room_status == "Reserved" and row.reservation_check_out_date:
-                # For reserved rooms, use reservation check_out_date
                 if isinstance(row.reservation_check_out_date, str):
                     departure_str = row.reservation_check_out_date
-                    departure_date = getdate(row.reservation_check_out_date)
                 else:
                     departure_str = row.reservation_check_out_date.strftime("%Y-%m-%d")
-                    departure_date = getdate(row.reservation_check_out_date)
             elif row.checkin_check_out_date:
-                # For occupied rooms, use check out date
                 if isinstance(row.checkin_check_out_date, str):
                     departure_str = row.checkin_check_out_date
-                    departure_date = getdate(row.checkin_check_out_date)
                 else:
                     departure_str = row.checkin_check_out_date.strftime("%Y-%m-%d")
-                    departure_date = getdate(row.checkin_check_out_date)
             
-            # Determine if occupied room should show as "Due Out"
-            # If room is occupied and departure date is < today (not <=), change status to "Due Out"
+            # Determine if occupied room should show as "Due Out" (uses Default Check Out Time when set)
             display_status = room_status
-            if room_status == "Occupied" and departure_date:
-                today_date = getdate(today())
-                if departure_date < today_date:  # Only past dates, not today
+            if room_status == "Occupied" and row.checkin_check_out_date:
+                if is_check_in_overdue(row.checkin_check_out_date):
                     display_status = "Due Out"
             
             # Get guest name - use reservation guest for reserved rooms, current guest for occupied

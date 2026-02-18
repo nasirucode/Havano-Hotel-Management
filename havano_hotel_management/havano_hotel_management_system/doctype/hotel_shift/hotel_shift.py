@@ -25,10 +25,6 @@ class HotelShift(Document):
 		"""Refresh room status counts based on current Room and Check In data.
 		Uses same logic as get_hotel_dashboard_stats - counts all rooms (no company filter)
 		so shift numbers match the dashboard display."""
-		from frappe.utils import today
-
-		today_date = getdate(today())
-
 		# Get all rooms - no company filter to match dashboard stats
 		rooms = frappe.get_all(
 			"Room",
@@ -69,11 +65,12 @@ class HotelShift(Document):
 			elif room.housekeeping_status == "Out of Order":
 				out_of_order += 1
 
-			# Overdue out: occupied room with check_out_date < today
+			# Overdue out: uses Default Check Out Time from Hotel Settings when set
 			if room.status == "Occupied" and room.current_checkin:
 				ci = check_ins.get(room.current_checkin)
 				if ci and ci.get("check_out_date"):
-					if getdate(ci.check_out_date) < today_date:
+					from havano_hotel_management.api import is_check_in_overdue
+					if is_check_in_overdue(ci.check_out_date):
 						overdue_out += 1
 
 		self.available_rooms = available
@@ -83,6 +80,11 @@ class HotelShift(Document):
 		self.out_of_order = out_of_order
 		self.overdue_out = overdue_out
 		self.reserved = reserved
+
+		# Occupancy Ratio = (rooms booked / total rooms) * 100
+		total_rooms = available + occupied + reserved
+		rooms_booked = occupied + reserved
+		self.occupancy_ratio = (rooms_booked / total_rooms * 100) if total_rooms else 0
 
 	def _refresh_financial_totals(self):
 		"""Refresh total cash paid, cash outstanding, and total revenue for shift period"""
